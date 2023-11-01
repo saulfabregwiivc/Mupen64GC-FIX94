@@ -210,12 +210,11 @@ int main(int argc, char* argv[]){
 
 	MenuContext *menu = new MenuContext(vmode);
 
-	if(argc > 3 && argv[1] != NULL && argv[2] != NULL && argv[3] != NULL)
+	if(argc > 2 && argv[1] != NULL && argv[2] != NULL)
 	{
 		menu->Autoboot = true;
 		strncpy(menu->AutobootPath, argv[1], sizeof(menu->AutobootPath));
 		strncpy(menu->AutobootROM, argv[2], sizeof(menu->AutobootROM));
-		strncpy(menu->AutobootDol, argv[3], sizeof(menu->AutobootDol));
 	}
 	VIDEO_SetPostRetraceCallback (ScanPADSandReset);
 #ifndef WII
