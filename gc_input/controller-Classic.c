@@ -95,7 +95,7 @@ static button_t analog_sources[] = {
 static button_t menu_combos[] = {
 	{ 0, CLASSIC_CTRL_BUTTON_X|CLASSIC_CTRL_BUTTON_Y, "X+Y" },
 	{ 1, CLASSIC_CTRL_BUTTON_ZL|CLASSIC_CTRL_BUTTON_ZR, "ZL+ZR" },
-	{ 2, WPAD_BUTTON_HOME, "Home" },
+	{ 2, CLASSIC_CTRL_BUTTON_HOME, "Home" },
 };
 
 static unsigned int getButtons(classic_ctrl_t* controller)
