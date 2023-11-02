@@ -359,8 +359,11 @@ int main(int argc, char* argv[]){
 		}
 	}
 #endif
-	if(menu->Autoboot)
+	if(menu->Autoboot) {
 		menu->setActiveFrame(2);
+		/* avoid autobooted rom to be loaded again when trying to change roms */
+		menu->Autoboot = false;
+	}
 
 	while (menu->isRunning()) {}
 
