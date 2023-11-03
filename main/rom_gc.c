@@ -180,10 +180,10 @@ int rom_read(fileBrowser_file* file){
   ((char*)&ROM_HEADER->Country_code)[0] = ((char*)&ROM_HEADER->Country_code)[1];
   ((char*)&ROM_HEADER->Country_code)[1] = temp;
   //Copy header name as Goodname (in the .ini we can use CRC to identify ROMS)
-  memset((char*)buffer,0,1024);
-  strncpy(buffer, (char*)ROM_HEADER->nom,20);
+  memcpy(ROM_SETTINGS.goodname, ROM_HEADER.Name, 20);
+  ROM_SETTINGS.goodname[20] = '\0';
   //Maximum ROM name is 20 bytes. Lets make sure we cut off trailing spaces
-  for(i = strlen(buffer); i>0; i--)
+  for(i = strlen(ROM_SETTINGS.goodname); i>0; i--)
   {
     if(buffer[i-1] !=  ' ') {
   		strncpy(&ROM_SETTINGS.goodname[0],&buffer[0],i);
