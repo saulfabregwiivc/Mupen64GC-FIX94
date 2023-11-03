@@ -161,7 +161,6 @@ u32 subscreen_address;
 /* Loads the ROM into the ROM cache */
 int rom_read(fileBrowser_file* file){
 
-   char buffer[1024];
    int i;
    rom_file = file;
    rom_length = file->size;
