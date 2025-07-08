@@ -13,7 +13,6 @@
 #include <gccore.h>
 #endif // __GX__
 
-#include <math.h>
 #ifndef __LINUX__
 # include <windows.h>
 #else
@@ -23,6 +22,7 @@
 #  define min(a,b) ((a) < (b) ? (a) : (b))
 # endif
 #endif
+#include <math.h>
 #include "glN64.h"
 #include "OpenGL.h"
 #include "Debug.h"
@@ -43,9 +43,7 @@ RSPInfo		RSP;
 
 void RSP_LoadMatrix( f32 mtx[4][4], u32 address )
 {
-#ifndef GEKKO
 	f32 recip = 1.5258789e-05f;
-#endif
 #ifndef __LINUX__
 	__asm {
 		mov		esi, dword ptr [RDRAM];

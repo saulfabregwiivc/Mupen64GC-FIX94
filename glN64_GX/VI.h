@@ -21,6 +21,7 @@ struct VIInfo
 	unsigned int* xfb[2];
 	int which_fb;
 	bool updateOSD;
+	bool enableLoadIcon;
 	bool EFBcleared;
 	bool copy_fb;
 #endif // __GX__
@@ -38,6 +39,7 @@ void VI_GX_setFB(unsigned int* fb1, unsigned int* fb2);
 unsigned int* VI_GX_getScreenPointer();
 void VI_GX_clearEFB();
 void VI_GX_showFPS();
+void VI_GX_showLoadProg(float percent);
 void VI_GX_updateDEBUG();
 void VI_GX_showDEBUG();
 void VI_GX_showStats();
