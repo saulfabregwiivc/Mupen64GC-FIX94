@@ -29,6 +29,7 @@ OBJ		=main/rom_gc.o \
 		main/ROM-Cache-MEM2.o \
 		main/gczip.o \
 		main/timers.o \
+		main/wii.o \
 		menu/MenuContext.o \
 		menu/MainFrame.o \
 		menu/LoadRomFrame.o \

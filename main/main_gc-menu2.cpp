@@ -64,6 +64,10 @@ extern "C" {
 #include "../fileBrowser/fileBrowser-libfat.h"
 #include "../fileBrowser/fileBrowser-CARD.h"
 #include "wii64config.h"
+
+#ifdef HW_RVL
+extern f32 SYS_GetCoreMultiplier();
+#endif
 }
 
 #ifdef WII
@@ -140,6 +144,7 @@ static struct {
   { (char*)"2xSaI", &glN64_use2xSaiTextures, GLN64_2XSAI_DISABLE, GLN64_2XSAI_ENABLE },
   { (char*)"ScreenMode", &screenMode, SCREENMODE_4x3, SCREENMODE_16x9_PILLARBOX },
   { (char*)"Core", ((char*)&dynacore)+3, DYNACORE_INTERPRETER, DYNACORE_PURE_INTERP },
+  { (char*)"CountPerOp", ((char*)&count_per_op)+3, COUNT_PER_OP_1, COUNT_PER_OP_3 },
   { (char*)"NativeDevice", &nativeSaveDevice, NATIVESAVEDEVICE_SD, NATIVESAVEDEVICE_CARDB },
   { (char*)"StatesDevice", &saveStateDevice, SAVESTATEDEVICE_SD, SAVESTATEDEVICE_USB },
   { (char*)"AutoSave", &autoSave, AUTOSAVE_DISABLE, AUTOSAVE_ENABLE },
@@ -243,7 +248,13 @@ int main(int argc, char* argv[]){
 	autoSave         = 1; // Auto Save Game
 	creditsScrolling = 0; // Normal menu for now
 	dynacore         = 1; // Dynarec
-	screenMode		 = 0; // Stretch FB horizontally
+#ifndef HW_RVL
+	count_per_op	 = COUNT_PER_OP_3;
+	screenMode		 = SCREENMODE_4x3;
+#else
+	count_per_op	 = SYS_GetCoreMultiplier() < 5.0 ? COUNT_PER_OP_2 : COUNT_PER_OP_1;
+	screenMode		 = CONF_GetAspectRatio() == CONF_ASPECT_16_9 ? SCREENMODE_16x9_PILLARBOX : SCREENMODE_4x3;
+#endif
 	padAutoAssign	 = PADAUTOASSIGN_AUTOMATIC;
 	padType[0]		 = PADTYPE_NONE;
 	padType[1]		 = PADTYPE_NONE;

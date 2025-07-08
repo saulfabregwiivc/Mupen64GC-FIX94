@@ -944,7 +944,7 @@ static void TLBWR()
 {
 	unsigned int i;
 	update_count();
-	Random = (Count/2 % (32 - Wired)) + Wired;
+	Random = (Count / count_per_op % (32 - Wired)) + Wired;
 
 	if (tlb_e[Random].v_even){
 		for (i=tlb_e[Random].start_even; i<tlb_e[Random].end_even; i+=0x1000)

@@ -54,6 +54,7 @@ static int inline mips_is_jump(MIPS_instr);
 void jump_to(unsigned int);
 void check_interupt();
 extern int llbit;
+extern unsigned long count_per_op;
 
 double __floatdidf(long long);
 float __floatdisf(long long);
@@ -3783,8 +3784,10 @@ static void genUpdateCount(int checkCount){
 	EMIT_SUBF(0, 0, tmp);
 	// lwz    tmp, 9*4(reg_cop0)     // tmp = Count
 	EMIT_LWZ(tmp, 9*4, DYNAREG_COP0);
-	// srwi r0, r0, 1                // r0 = (pc - last_addr)/2
-	EMIT_SRWI(0, 0, 1);
+	// srwi r0, r0, 2                // r0 = (pc - last_addr)>>2
+	EMIT_SRWI(0, 0, 2);
+	// mulli r0, r0, count_per_op    // r0 =* count_per_op
+	EMIT_MULLI(0, 0, count_per_op);
 	// add    r0,  r0, tmp           // r0 += Count
 	EMIT_ADD(0, 0, tmp);
 	if(checkCount){
