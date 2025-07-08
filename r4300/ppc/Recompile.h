@@ -199,6 +199,8 @@ extern PowerPC_block *blocks[0x100000];
 {PowerPC_instr ppc;GEN_XORI(ppc,rd,ra,immed);set_next_dst(ppc);}
 #define EMIT_XORIS(rd,ra,immed) \
 {PowerPC_instr ppc;GEN_XORIS(ppc,rd,ra,immed);set_next_dst(ppc);}
+#define EMIT_MULLI(rd,ra,immed) \
+{PowerPC_instr ppc;GEN_MULLI(ppc,rd,ra,immed);set_next_dst(ppc);}
 #define EMIT_MULLW(rd,ra,rb) \
 {PowerPC_instr ppc;GEN_MULLW(ppc,rd,ra,rb);set_next_dst(ppc);}
 #define EMIT_MULHW(rd,ra,rb) \
