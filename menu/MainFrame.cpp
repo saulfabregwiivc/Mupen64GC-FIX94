@@ -163,20 +163,21 @@ void Func_Credits()
 {
 	char CreditsInfo[512] = "";
 #ifdef HW_RVL
-	strcat(CreditsInfo,"Wii64 Beta 1.1 'Honey'\n");
+	strcat(CreditsInfo,"Mupen64GC-FIX94 Wii\n");
 #else
-	strcat(CreditsInfo,"Cube64 Beta 1.1 'Honey'\n");
+	strcat(CreditsInfo,"Mupen64GC-FIX94 GameCube\n");
 #endif
-	strcat(CreditsInfo,"\n");
-	strcat(CreditsInfo,"Wii64 Team: www.emulatemii.com\n");
+	strcat(CreditsInfo,"Unofficial saulfabreg Edition r4\n");
+	strcat(CreditsInfo,"- Original Wii64 Team: -\n");
 	strcat(CreditsInfo,"tehpola - core\n");
 	strcat(CreditsInfo,"sepp256 - graphics & menu\n");
 	strcat(CreditsInfo,"emu_kidid - general coding\n");
 	strcat(CreditsInfo,"\n");
-	strcat(CreditsInfo,"Special Thanks To:\n");
-	strcat(CreditsInfo,"       drmr - for menu graphics\n");
+	strcat(CreditsInfo,"- Special thanks to: -\n");
+	strcat(CreditsInfo,"drmr - for menu graphics\n");
 	strcat(CreditsInfo,"Hacktarux - for Mupen64\n");
-	strcat(CreditsInfo,"Wintermute/Shagkur - devkitPro/libOGC\n");
+	strcat(CreditsInfo,"WinterMute/Shagkur - devkitPro/libOGC\n");
+	strcat(CreditsInfo,"FIX94 - original Mupen64GC-FIX94\n");
 #ifdef HW_RVL
 	strcat(CreditsInfo,"Team Twiizers - for Wii homebrew\n");
 #endif
