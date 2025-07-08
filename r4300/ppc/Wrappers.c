@@ -54,7 +54,7 @@ static PowerPC_func* last_func;
  *  $sp	    | old sp
  */
 
-inline unsigned int dyna_run(PowerPC_func* func, unsigned int (*code)(void)){
+inline u32 dyna_run(PowerPC_func* func, unsigned int (*code)(void)){
 	unsigned int naddr;
 	PowerPC_instr* return_addr;
 
