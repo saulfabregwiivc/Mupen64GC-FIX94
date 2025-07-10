@@ -228,12 +228,13 @@ void VI_GX_clearEFB(){
 }
 
 extern timers Timers;
-extern float VILimit;
+//extern float VILimit;
 
 void VI_GX_showFPS(){
 	char caption[50];
 
-	sprintf(caption, "%.1f VI/s (%.1fx), %.1f DL/s",Timers.vis,Timers.vis/VILimit,Timers.fps);
+	//sprintf(caption, "%.1f VI/s (%.1fx), %.1f DL/s",Timers.vis,Timers.vis/VILimit,Timers.fps);
+	sprintf(caption, "%.1f VI/s, %.1f FPS",Timers.vis,Timers.fps);
 	
 	GXColor fontColor = {150,255,150,255};
 #ifndef MENU_V2
