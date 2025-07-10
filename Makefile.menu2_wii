@@ -282,9 +282,6 @@ glN64_GX/F3DDKR.o:			glN64_GX/F3DDKR.cpp
 glN64_GX/F3DWRUS.o:		glN64_GX/F3DWRUS.cpp
 				$(CXX) $(CXXFLAGS) -D__LINUX__ -D__GX__ -c -o $@ $<
 
-glN64_GX/F3DWRUS.o:		glN64_GX/F3DWRUS.cpp
-				$(CXX) $(CXXFLAGS) -D__LINUX__ -D__GX__ -c -o $@ $<
-
 glN64_GX/F3DCBFD.o:		glN64_GX/F3DCBFD.cpp
 				$(CXX) $(CXXFLAGS) -D__LINUX__ -D__GX__ -c -o $@ $<
 
