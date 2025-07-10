@@ -13,6 +13,7 @@
 #include <gccore.h>
 #endif // __GX__
 
+#include <math.h>
 #ifndef __LINUX__
 # include <windows.h>
 #else
@@ -22,7 +23,6 @@
 #  define min(a,b) ((a) < (b) ? (a) : (b))
 # endif
 #endif
-#include <math.h>
 #include "glN64.h"
 #include "OpenGL.h"
 #include "Debug.h"
