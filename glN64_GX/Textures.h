@@ -78,7 +78,6 @@ struct TextureCache
 	u32				enable2xSaI, bitDepth;
 #ifdef __GX__
 	int				VIcount;
-	CachedTexture	*(GXprimDepthZ[2]);
 	u32				GXprimDepthCnt,GXZTexPrimCnt,GXnoZTexPrimCnt;
 #endif // __GX__
 };
@@ -89,7 +88,11 @@ extern TextureCache cache;
 # ifdef HW_RVL
 # define GX_TEXTURE_CACHE_SIZE TEXCACHE_SIZE //8MB for Wii
 # else //HW_RVL
-# define GX_TEXTURE_CACHE_SIZE (2*1024*1024)
+#  ifdef USE_EXPANSION
+#   define GX_TEXTURE_CACHE_SIZE (1*1024*1024) //1 MB for GC with expansion pak
+#  else
+#	define GX_TEXTURE_CACHE_SIZE (2*1024*1024) //2 MB for GC
+#  endif
 # endif //!HW_RVL
 # define GX_MAX_TEXTURES (512*1024/sizeof( CachedTexture )) //Allow 512kB of Texture Meta
 #endif //__GX__
@@ -130,7 +133,6 @@ void TextureCache_ActivateDummy( u32 t );
 BOOL TextureCache_Verify();
 #ifdef __GX__
 void TextureCache_FreeNextTexture();
-void TextureCache_UpdatePrimDepthZtex( f32 z );
 #endif // __GX__
 
 #endif

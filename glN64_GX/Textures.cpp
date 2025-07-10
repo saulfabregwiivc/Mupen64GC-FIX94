@@ -12,6 +12,7 @@
 #ifdef __GX__
 #include <gccore.h>
 #include <ogc/lwp_heap.h>
+#include <ogc/machine/processor.h>
 #include <stdio.h>
 #include <malloc.h>
 #include <string.h>
@@ -26,6 +27,9 @@
 # include <stdlib.h>
 # ifndef min
 #  define min(a,b) ((a) < (b) ? (a) : (b))
+# endif
+# ifndef max
+#  define max(a,b) ((a) > (b) ? (a) : (b))
 # endif
 # define timeGetTime() time(NULL)
 #endif
@@ -401,6 +405,9 @@ void TextureCache_Init()
 #else //HW_RVL
 		__lwp_heap_init(GXtexCache, memalign(32,GX_TEXTURE_CACHE_SIZE),GX_TEXTURE_CACHE_SIZE, 32);
 #endif //!HW_RVL
+#ifdef SHOW_DEBUG
+		DEBUG_registerHeap(GXtexCache, "TEX");
+#endif
 	}
 #endif //__GX__
 
@@ -466,26 +473,8 @@ void TextureCache_Init()
 //	cache.dummy->GXtexture = (u16*) memalign(32,cache.dummy->textureBytes);
 	cache.dummy->GXtexture = (u16*) __lwp_heap_allocate(GXtexCache,cache.dummy->textureBytes);
 	cache.dummy->GXtexfmt = GX_TF_RGBA8;
-	for (int i = 0; i<16; i+=4)
-	{
-		((u32*)cache.dummy->GXtexture)[i  ] = (u32) 0x0000FFFF;	//alternate white/black pixels
-		((u32*)cache.dummy->GXtexture)[i+1] = (u32) 0x0000FFFF;
-		((u32*)cache.dummy->GXtexture)[i+2] = (u32) 0xFFFF0000;
-		((u32*)cache.dummy->GXtexture)[i+3] = (u32) 0xFFFF0000;
-	}
+	DCZeroRange(cache.dummy->GXtexture, cache.dummy->textureBytes);
 	DCFlushRange(cache.dummy->GXtexture, cache.dummy->textureBytes);
-
-	//Init GXprimDepthZ textures
-	cache.GXprimDepthZ[0] = (CachedTexture*)malloc( sizeof( CachedTexture ) );
-	cache.GXprimDepthZ[1] = (CachedTexture*)malloc( sizeof( CachedTexture ) );
-	cache.GXprimDepthZ[0]->textureBytes = 32;
-	cache.GXprimDepthZ[1]->textureBytes = 32;
-	cache.GXprimDepthZ[0]->GXtexture = (u16*)memalign(32,cache.GXprimDepthZ[0]->textureBytes);
-	cache.GXprimDepthZ[1]->GXtexture = (u16*)memalign(32,cache.GXprimDepthZ[1]->textureBytes);
-	memset( cache.GXprimDepthZ[0]->GXtexture, 0x00, cache.GXprimDepthZ[0]->textureBytes);
-	memset( cache.GXprimDepthZ[1]->GXtexture, 0x00, cache.GXprimDepthZ[1]->textureBytes);
-	cache.cachedBytes += cache.GXprimDepthZ[0]->textureBytes;
-	cache.cachedBytes += cache.GXprimDepthZ[1]->textureBytes;
 
 #endif // __GX__
 
@@ -493,8 +482,7 @@ void TextureCache_Init()
 
 	TextureCache_ActivateDummy( 0 );
 	TextureCache_ActivateDummy( 1 );
-
-	CRC_BuildTable();
+	TextureCache_ActivateDummy( 2 );
 }
 
 BOOL TextureCache_Verify()
@@ -674,15 +662,6 @@ void TextureCache_Destroy()
 #else // !__GX__
 	//For now we're not using Noise textures.
 
-	//De-Init GXprimDepthZ textures
-	cache.cachedBytes -= cache.GXprimDepthZ[0]->textureBytes;
-	cache.cachedBytes -= cache.GXprimDepthZ[1]->textureBytes;
-	if( cache.GXprimDepthZ[0]->GXtexture != NULL )
-		free(cache.GXprimDepthZ[0]->GXtexture);
-	if( cache.GXprimDepthZ[1]->GXtexture != NULL )
-		free(cache.GXprimDepthZ[1]->GXtexture);
-	free( cache.GXprimDepthZ[0] );
-	free( cache.GXprimDepthZ[1] );
 #endif // __GX__
 
 	cache.top = NULL;
@@ -691,7 +670,7 @@ void TextureCache_Destroy()
 
 void TextureCache_LoadBackground( CachedTexture *texInfo )
 {
-	u32 *dest = NULL, *scaledDest;
+	u8 *dest = NULL, *scaledDest;
 #ifndef __GX__
 	u8 *swapped;
 	GLuint			glInternalFormat;
@@ -828,15 +807,17 @@ void TextureCache_LoadBackground( CachedTexture *texInfo )
 
 	if (texInfo->textureBytes > 0)
 	{
-		dest = (u32*) __lwp_heap_allocate(GXtexCache,texInfo->textureBytes);
+		dest = (u8*) __lwp_heap_allocate(GXtexCache,texInfo->textureBytes);
 		while(!dest)
 		{
 			TextureCache_FreeNextTexture();
-			dest = (u32*) __lwp_heap_allocate(GXtexCache,texInfo->textureBytes);
+			dest = (u8*) __lwp_heap_allocate(GXtexCache,texInfo->textureBytes);
 		}
 	}
+#ifdef SHOW_DEBUG
 	else
 		DEBUG_print((char*)"Textures: Trying to malloc a 0 byte GX texture",DBG_TXINFO);
+#endif
 
 	clampSClamp = texInfo->width - 1;
 	clampTClamp = texInfo->height - 1;
@@ -845,7 +826,6 @@ void TextureCache_LoadBackground( CachedTexture *texInfo )
 	{
 		texInfo->GXtexture = (u16*) dest;
 
-		j = 0;
 		switch(GXsize)
 		{
 		case 1:	// 1 byte per GX texel -> GXGetIA31_IA4, GXGetI4_IA4, GXGetIA44_IA4
@@ -853,6 +833,8 @@ void TextureCache_LoadBackground( CachedTexture *texInfo )
 			{
 				for (x = 0; x < texInfo->realWidth; x+=8)
 				{
+					j = 0;
+					__asm__ volatile("dcbz %y0" : "=Z"(*dest) :: "memory");
 					for (k = 0; k < 4; k++)
 					{
 						ty = min(y+k, clampTClamp);
@@ -860,17 +842,22 @@ void TextureCache_LoadBackground( CachedTexture *texInfo )
 						for (l = 0; l < 8; l++)
 						{
 							tx = min(x+l, clampSClamp);
-							((u8*)texInfo->GXtexture)[j++] = (u8) GetTexel( (u64*)src, tx, 0, texInfo->palette );
+							((u8*)dest)[j++] = (u8) GetTexel( (u64*)src, tx, 0, texInfo->palette );
 						}
 					}
+					__asm__ volatile("dcbf %y0" : "=Z"(*dest) :: "memory");
+					dest += 32;
 				}
 			}
+			_sync();
 			break;
 		case 2: // 2 bytes per GX texel -> GXGetCI4RGBA_RGB5A3, GXGetCI8RGBA_RGB5A3, GXGetI8_IA8, GXGetRGBA5551_RGB5A3, GXGetIA88_IA8, GXGetCI4IA_IA8, GXGetCI8IA_IA8
 			for (y = 0; y < texInfo->realHeight; y+=4)
 			{
 				for (x = 0; x < texInfo->realWidth; x+=4)
 				{
+					j = 0;
+					__asm__ volatile("dcbz %y0" : "=Z"(*dest) :: "memory");
 					for (k = 0; k < 4; k++)
 					{
 						ty = min(y+k, clampTClamp);
@@ -878,17 +865,23 @@ void TextureCache_LoadBackground( CachedTexture *texInfo )
 						for (l = 0; l < 4; l++)
 						{
 							tx = min(x+l, clampSClamp);
-							((u16*)texInfo->GXtexture)[j++] = (u16) GetTexel( (u64*)src, tx, 0, texInfo->palette );
+							((u16*)dest)[j++] = (u16) GetTexel( (u64*)src, tx, 0, texInfo->palette );
 						}
 					}
+					__asm__ volatile("dcbf %y0" : "=Z"(*dest) :: "memory");
+					dest += 32;
 				}
 			}
+			_sync();
 			break;
 		case 4: // 4 bytes per GX texel -> GXGetRGBA8888_RGBA8
 			for (y = 0; y < texInfo->realHeight; y+=4)
 			{
 				for (x = 0; x < texInfo->realWidth; x+=4)
 				{
+					j = 0;
+					__asm__ volatile("dcbz %y0" : "=Z"(dest[0]) :: "memory");
+					__asm__ volatile("dcbz %y0" : "=Z"(dest[32]) :: "memory");
 					for (k = 0; k < 4; k++)
 					{
 						ty = min(y+k, clampTClamp);
@@ -896,17 +889,22 @@ void TextureCache_LoadBackground( CachedTexture *texInfo )
 						for (l = 0; l < 4; l++)
 						{
 							tx = min(x+l, clampSClamp);
-							((u16*)texInfo->GXtexture)[j] =		(u16) GetTexel( (u64*)src, tx, 0, 0 );	// AARR texels
-							((u16*)texInfo->GXtexture)[j+16] =	(u16) GetTexel( (u64*)src, tx, 0, 1 );	// GGBB texels -> next 32B block
+							((u16*)dest)[j] =		(u16) GetTexel( (u64*)src, tx, 0, 0 );	// AARR texels
+							((u16*)dest)[j+16] =	(u16) GetTexel( (u64*)src, tx, 0, 1 );	// GGBB texels -> next 32B block
 							j++;
 						}
 					}
-					j += 16;	// skip 2nd half of 64B cache line
+					__asm__ volatile("dcbf %y0" : "=Z"(dest[0]) :: "memory");
+					__asm__ volatile("dcbf %y0" : "=Z"(dest[32]) :: "memory");
+					dest += 64;
 				}
 			}
+			_sync();
 			break;
+#ifdef SHOW_DEBUG
 		default:
 			DEBUG_print((char*)"Textures: Converting Invalid Texture Format",DBG_TXINFO);
+#endif
 		}
 	}
 	else //	!cache.enable2xSaI
@@ -940,11 +938,11 @@ void TextureCache_LoadBackground( CachedTexture *texInfo )
 		
 		texInfo->textureBytes <<= 2;
 
-		scaledDest = (u32*) __lwp_heap_allocate(GXtexCache,texInfo->textureBytes);
+		scaledDest = (u8*) __lwp_heap_allocate(GXtexCache,texInfo->textureBytes);
 		while(!scaledDest)
 		{
 			TextureCache_FreeNextTexture();
-			scaledDest = (u32*) __lwp_heap_allocate(GXtexCache,texInfo->textureBytes);
+			scaledDest = (u8*) __lwp_heap_allocate(GXtexCache,texInfo->textureBytes);
 		}
 
 		Interpolator* interpolator;
@@ -964,7 +962,7 @@ void TextureCache_LoadBackground( CachedTexture *texInfo )
 
 		texInfo->GXtexture = (u16*) scaledDest;
 		__lwp_heap_free(GXtexCache, dest);
-
+		DCFlushRange(scaledDest, texInfo->textureBytes);
 	}	//	cache.enable2xSaI
 #endif // __GX__
 
@@ -1005,15 +1003,12 @@ void TextureCache_LoadBackground( CachedTexture *texInfo )
 		free (swapped );
 		free( dest );
 	}
-#else // !__GX__
-	//2xSaI textures will not be implemented for now.
-	DCFlushRange(texInfo->GXtexture, texInfo->textureBytes);
 #endif // __GX__
 }
 
 void TextureCache_Load( CachedTexture *texInfo )
 {
-	u32 *dest = NULL, *scaledDest;
+	u8 *dest = NULL, *scaledDest;
 #ifndef __GX__
 	GLuint			glInternalFormat;
 	GLenum			glType;
@@ -1110,15 +1105,17 @@ void TextureCache_Load( CachedTexture *texInfo )
 	texInfo->textureBytes = (texInfo->GXrealWidth * texInfo->GXrealHeight) * GXsize;
 	if (texInfo->textureBytes > 0)
 	{
-		dest = (u32*) __lwp_heap_allocate(GXtexCache,texInfo->textureBytes);
+		dest = (u8*) __lwp_heap_allocate(GXtexCache,texInfo->textureBytes);
 		while(!dest)
 		{
 			TextureCache_FreeNextTexture();
-			dest = (u32*) __lwp_heap_allocate(GXtexCache,texInfo->textureBytes);
+			dest = (u8*) __lwp_heap_allocate(GXtexCache,texInfo->textureBytes);
 		}
 	}
+#ifdef SHOW_DEBUG
 	else
 		DEBUG_print((char*)"Textures: Trying to malloc a 0 byte GX texture",DBG_TXINFO);
+#endif	
 
 #endif // __GX__
 
@@ -1153,16 +1150,16 @@ void TextureCache_Load( CachedTexture *texInfo )
 		mirrorTBit = 0x0000;
 	}
 
-	// Hack for Zelda warp texture
-	if (((texInfo->tMem << 3) + (texInfo->width * texInfo->height << texInfo->size >> 1)) > 4096)
-		texInfo->tMem = 0;
+	if (clampSClamp & 0x8000)
+		clampSClamp = 0;
+	if (clampTClamp & 0x8000)
+		clampTClamp = 0;
 
 #ifdef __GX__
 	texInfo->GXtexture = (u16*) dest;
 
 	if (!cache.enable2xSaI)
 	{
-		j = 0;
 		switch(GXsize)
 		{
 		case 1:	// 1 byte per GX texel -> GXGetIA31_IA4, GXGetI4_IA4, GXGetIA44_IA4
@@ -1170,75 +1167,93 @@ void TextureCache_Load( CachedTexture *texInfo )
 			{
 				for (x = 0; x < texInfo->realWidth; x+=8)
 				{
+					j = 0;
+					__asm__ volatile("dcbz %y0" : "=Z"(*dest) :: "memory");
 					for (k = 0; k < 4; k++)
 					{
 						ty = min(y+k, clampTClamp) & maskTMask;
 						if ((y+k) & mirrorTBit)
 							ty ^= maskTMask;
-						src = &TMEM[texInfo->tMem] + line * ty;
+						src = &TMEM[(texInfo->tMem + line * ty) & 0x1FF];
 						i = (ty & 1) << 1;
 						for (l = 0; l < 8; l++)
 						{
 							tx = min(x+l, clampSClamp) & maskSMask;
 							if ((x+l) & mirrorSBit)
 								tx ^= maskSMask;
-							((u8*)texInfo->GXtexture)[j++] = (u8) GetTexel( src, tx, i, texInfo->palette );
+							((u8*)dest)[j++] = (u8) GetTexel( src, tx, i, texInfo->palette );
 						}
 					}
+					__asm__ volatile("dcbf %y0" : "=Z"(*dest) :: "memory");
+					dest += 32;
 				}
 			}
+			_sync();
 			break;
 		case 2: // 2 bytes per GX texel -> GXGetCI4RGBA_RGB5A3, GXGetCI8RGBA_RGB5A3, GXGetI8_IA8, GXGetRGBA5551_RGB5A3, GXGetIA88_IA8, GXGetCI4IA_IA8, GXGetCI8IA_IA8
 			for (y = 0; y < texInfo->realHeight; y+=4)
 			{
 				for (x = 0; x < texInfo->realWidth; x+=4)
 				{
+					j = 0;
+					__asm__ volatile("dcbz %y0" : "=Z"(*dest) :: "memory");
 					for (k = 0; k < 4; k++)
 					{
 						ty = min(y+k, clampTClamp) & maskTMask;
 						if ((y+k) & mirrorTBit)
 							ty ^= maskTMask;
-						src = &TMEM[texInfo->tMem] + line * ty;
+						src = &TMEM[(texInfo->tMem + line * ty) & 0x1FF];
 						i = (ty & 1) << 1;
 						for (l = 0; l < 4; l++)
 						{
 							tx = min(x+l, clampSClamp) & maskSMask;
 							if ((x+l) & mirrorSBit)
 								tx ^= maskSMask;
-							((u16*)texInfo->GXtexture)[j++] = (u16) GetTexel( src, tx, i, texInfo->palette );
+							((u16*)dest)[j++] = (u16) GetTexel( src, tx, i, texInfo->palette );
 						}
 					}
+					__asm__ volatile("dcbf %y0" : "=Z"(*dest) :: "memory");
+					dest += 32;
 				}
 			}
+			_sync();
 			break;
 		case 4: // 4 bytes per GX texel -> GXGetRGBA8888_RGBA8
 			for (y = 0; y < texInfo->realHeight; y+=4)
 			{
 				for (x = 0; x < texInfo->realWidth; x+=4)
 				{
+					j = 0;
+					__asm__ volatile("dcbz %y0" : "=Z"(dest[0]) :: "memory");
+					__asm__ volatile("dcbz %y0" : "=Z"(dest[32]) :: "memory");
 					for (k = 0; k < 4; k++)
 					{
 						ty = min(y+k, clampTClamp) & maskTMask;
 						if ((y+k) & mirrorTBit)
 							ty ^= maskTMask;
-						src = &TMEM[texInfo->tMem] + line * ty;
+						src = &TMEM[(texInfo->tMem + line * ty) & 0x1FF];
 						i = (ty & 1) << 1;
 						for (l = 0; l < 4; l++)
 						{
 							tx = min(x+l, clampSClamp) & maskSMask;
 							if ((x+l) & mirrorSBit)
 								tx ^= maskSMask;
-							((u16*)texInfo->GXtexture)[j] =		(u16) GetTexel( src, tx, i, 0 );	// AARR texels
-							((u16*)texInfo->GXtexture)[j+16] =	(u16) GetTexel( src, tx, i, 1 );	// GGBB texels -> next 32B block
+							((u16*)dest)[j] =		(u16) GetTexel( src, tx, i, 0 );	// AARR texels
+							((u16*)dest)[j+16] =	(u16) GetTexel( src, tx, i, 1 );	// GGBB texels -> next 32B block
 							j++;
 						}
 					}
-					j += 16;	// skip 2nd half of 64B cache line
+					__asm__ volatile("dcbf %y0" : "=Z"(dest[0]) :: "memory");
+					__asm__ volatile("dcbf %y0" : "=Z"(dest[32]) :: "memory");
+					dest += 64;
 				}
 			}
+			_sync();
 			break;
+#ifdef SHOW_DEBUG
 		default:
 			DEBUG_print((char*)"Textures: Converting Invalid Texture Format",DBG_TXINFO);
+#endif
 		}
 	}
 	else if (texInfo->textureBytes > 0) //	!cache.enable2xSaI
@@ -1251,7 +1266,7 @@ void TextureCache_Load( CachedTexture *texInfo )
 			if (y & mirrorTBit)
 				ty ^= maskTMask;
 	
-			src = &TMEM[texInfo->tMem] + line * ty;
+			src = &TMEM[(texInfo->tMem + line * ty) & 0x1FF];
 	
 			i = (ty & 1) << 1;
 			for (x = 0; x < texInfo->realWidth; x++)
@@ -1280,11 +1295,11 @@ void TextureCache_Load( CachedTexture *texInfo )
 		
 		texInfo->textureBytes <<= 2;
 
-		scaledDest = (u32*) __lwp_heap_allocate(GXtexCache,texInfo->textureBytes);
+		scaledDest = (u8*) __lwp_heap_allocate(GXtexCache,texInfo->textureBytes);
 		while(!scaledDest)
 		{
 			TextureCache_FreeNextTexture();
-			scaledDest = (u32*) __lwp_heap_allocate(GXtexCache,texInfo->textureBytes);
+			scaledDest = (u8*) __lwp_heap_allocate(GXtexCache,texInfo->textureBytes);
 		}
 
 		Interpolator* interpolator;
@@ -1304,7 +1319,7 @@ void TextureCache_Load( CachedTexture *texInfo )
 
 		texInfo->GXtexture = (u16*) scaledDest;
 		__lwp_heap_free(GXtexCache, dest);
-
+		DCFlushRange(scaledDest, texInfo->textureBytes);
 	} 	//	cache.enable2xSaI
 #else // __GX__
 	j = 0;
@@ -1366,12 +1381,6 @@ void TextureCache_Load( CachedTexture *texInfo )
 		free( dest );
 	}
 #endif // !__GX__
-
-#ifdef __GX__
-	//2xSaI textures will not be implemented for now.
-	if(texInfo->GXtexture != NULL)
-		DCFlushRange(texInfo->GXtexture, texInfo->textureBytes);
-#endif // __GX__
 }
 
 u32 TextureCache_CalculateCRC( u32 t, u32 width, u32 height )
@@ -1380,7 +1389,6 @@ u32 TextureCache_CalculateCRC( u32 t, u32 width, u32 height )
 	u32 y, /*i,*/ bpl, lineBytes, line;
 	u64 *src;
 
-	src = (u64*)&TMEM[gSP.textureTile[t]->tmem];
 	bpl = width << gSP.textureTile[t]->size >> 1;
 	lineBytes = gSP.textureTile[t]->line << 3;
 
@@ -1391,17 +1399,16 @@ u32 TextureCache_CalculateCRC( u32 t, u32 width, u32 height )
 	crc = 0xFFFFFFFF;
  	for (y = 0; y < height; y++)
 	{
-		crc = CRC_Calculate( crc, src, bpl );
-
-		src += line;
+		src = (u64*)&TMEM[(gSP.textureTile[t]->tmem + line * y) & 0x1FF];
+		crc = Hash_Calculate( crc, src, bpl );
 	}
 
    	if (gSP.textureTile[t]->format == G_IM_FMT_CI)
 	{
 		if (gSP.textureTile[t]->size == G_IM_SIZ_4b)
-			crc = CRC_Calculate( crc, &gDP.paletteCRC16[gSP.textureTile[t]->palette], 4 );
+			crc = Hash_Calculate( crc, &TMEM[0x100 + (gSP.textureTile[t]->palette << 4)], 128 );
 		else if (gSP.textureTile[t]->size == G_IM_SIZ_8b)
-			crc = CRC_Calculate( crc, &gDP.paletteCRC256, 4 );
+			crc = Hash_Calculate( crc, &TMEM[0x100], 2048 );
 	}
 	return crc;
 }
@@ -1445,7 +1452,10 @@ void TextureCache_ActivateTexture( u32 t, CachedTexture *texture )
 			GX_InitTexObj(&texture->GXtex, texture->GXtexture, (u16) texture->realWidth, (u16) texture->realHeight, texture->GXtexfmt, 
 				texture->clampS ? GX_CLAMP : GX_REPEAT, 
 				texture->clampT ? GX_CLAMP : GX_REPEAT, GX_FALSE); 
-		if (OGL.GXuseMinMagNearest) GX_InitTexObjLOD(&texture->GXtex, GX_NEAR, GX_NEAR, 0.0f, 0.0f, 0.0f, GX_FALSE, GX_FALSE, GX_ANISO_1);
+		if (texture->frameBufferTexture || OGL.GXuseMinMagNearest)
+			GX_InitTexObjLOD(&texture->GXtex, GX_NEAR, GX_NEAR, 0.0f, 0.0f, 0.0f, GX_FALSE, GX_FALSE, GX_ANISO_1);
+		else
+			GX_InitTexObjLOD(&texture->GXtex, GX_LINEAR, GX_LINEAR, 0.0f, 0.0f, 0.0f, GX_TRUE, GX_TRUE, GX_ANISO_4);
 		GX_LoadTexObj(&texture->GXtex, t); // t = 0 is GX_TEXMAP0 and t = 1 is GX_TEXMAP1
 		OGL.GXuseMinMagNearest = false;
 #ifdef GLN64_SDLOG
@@ -1492,14 +1502,14 @@ void TextureCache_UpdateBackground()
 	u32 numBytes = gSP.bgImage.width * gSP.bgImage.height << gSP.bgImage.size >> 1;
 	u32 crc;
 
-	crc = CRC_Calculate( 0xFFFFFFFF, &RDRAM[gSP.bgImage.address], numBytes );
+	crc = Hash_Calculate( 0xFFFFFFFF, &RDRAM[gSP.bgImage.address], numBytes );
 
    	if (gSP.bgImage.format == G_IM_FMT_CI)
 	{
 		if (gSP.bgImage.size == G_IM_SIZ_4b)
-			crc = CRC_Calculate( crc, &gDP.paletteCRC16[gSP.bgImage.palette], 4 );
+			crc = Hash_Calculate( crc, &TMEM[0x100 + (gSP.bgImage.palette << 4)], 128 );
 		else if (gSP.bgImage.size == G_IM_SIZ_8b)
-			crc = CRC_Calculate( crc, &gDP.paletteCRC256, 4 );
+			crc = Hash_Calculate( crc, &TMEM[0x100], 2048 );
 	}
 
 	CachedTexture *current = cache.top;
@@ -1899,25 +1909,4 @@ void TextureCache_FreeNextTexture()
 	}
 }
 
-void TextureCache_UpdatePrimDepthZtex( f32 z )
-{
-	//This function sets a Ztex to gDP.primDepth.z which is in the range [0,1]
-	//Called from gDPSetPrimDepth()
-
-	// Let GX finish with all previous commands before loading the new tex
-	// TODO: Work around this with tokens.
-	GX_DrawDone();
-
-	u16 primDepthval = (u16) (z * 65535.0f);
-	for (int i = 0; i < 16; i++)
-		cache.GXprimDepthZ[0]->GXtexture[i] = primDepthval;
-	if(cache.GXprimDepthZ[0]->GXtexture != NULL)
-	{
-		DCFlushRange(cache.GXprimDepthZ[0]->GXtexture, cache.GXprimDepthZ[0]->textureBytes);
-		GX_InitTexObj(&cache.GXprimDepthZ[0]->GXtex, cache.GXprimDepthZ[0]->GXtexture, (u16) 4, (u16) 4, GX_TF_Z16, 
-			GX_CLAMP, GX_CLAMP, GX_FALSE); 
-		GX_LoadTexObj(&cache.GXprimDepthZ[0]->GXtex, GX_TEXMAP2);
-	}
-	cache.GXprimDepthCnt++;
-}
 #endif // __GX__
