@@ -232,9 +232,13 @@ extern timers Timers;
 
 void VI_GX_showFPS(){
 	char caption[50];
-
+	
+	// Original from Wii64 1.3:
 	//sprintf(caption, "%.1f VI/s (%.1fx), %.1f DL/s",Timers.vis,Timers.vis/VILimit,Timers.fps);
-	sprintf(caption, "%.1f VI/s, %.1f FPS",Timers.vis,Timers.fps);
+	//
+	// Original from Wii64 1.1:
+	//sprintf(caption, "%.1f VI/s, %.1f FPS",Timers.vis,Timers.fps);
+	sprintf(caption, "%.1f VI/s (%.1fx), %.1f DL/s",Timers.vis,Timers.fps);
 	
 	GXColor fontColor = {150,255,150,255};
 #ifndef MENU_V2
