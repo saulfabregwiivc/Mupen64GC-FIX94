@@ -122,7 +122,7 @@ void gSPCombineMatrices()
 #ifdef __GX__
 	if (OGL.numTriangles)
 		OGL_DrawTriangles();
-	guMtx44Inverse( gSP.matrix.combined, OGL.GXprojTemp );
+	guMtxInverse( gSP.matrix.combined, OGL.GXprojTemp );
 
 	if (OGL.GXprojTemp[2][3] != 0.0f)
 	{
@@ -427,7 +427,7 @@ void gSPForceMatrix( u32 mptr )
 
 	if (OGL.numTriangles)
 		OGL_DrawTriangles();
-	guMtx44Inverse( gSP.matrix.combined, OGL.GXprojTemp );
+	guMtxInverse( gSP.matrix.combined, OGL.GXprojTemp );
 
 	if (OGL.GXprojTemp[2][3] != 0.0f)
 	{
@@ -1228,7 +1228,7 @@ void gSPInsertMatrix( u32 where, u32 num )
 	if (OGL.numTriangles)
 		OGL_DrawTriangles();
 
-	guMtx44Inverse( gSP.matrix.combined, OGL.GXprojTemp );
+	guMtxInverse( gSP.matrix.combined, OGL.GXprojTemp );
 
 	if (OGL.GXprojTemp[2][3] != 0.0f)
 	{

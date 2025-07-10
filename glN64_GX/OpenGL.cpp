@@ -1976,8 +1976,8 @@ void OGL_GXinitDlist()
 	GX_LoadTexMtxImm(OGL.GXmodelViewIdent,GX_TEXMTX0,GX_MTX2x4);
 
 	//Reset projection matrix
-	guMtx44Identity(OGL.GXcombW);
-	guMtx44Identity(OGL.GXprojIdent);
+	guMtxIdentity(OGL.GXcombW);
+	guMtxIdentity(OGL.GXprojIdent);
 	//N64 Z clip space is backwards, so mult z components by -1
 	//N64 Z [-1,1] whereas GC Z [-1,0], so mult by 0.5 and shift by -0.5
 	OGL.GXcombW[2][2] = 0.0f;
