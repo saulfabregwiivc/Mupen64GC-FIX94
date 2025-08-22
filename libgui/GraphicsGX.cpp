@@ -22,10 +22,10 @@
 #include "GraphicsGX.h"
 #include "../main/wii64config.h"
 
-#define DEFAULT_FIFO_SIZE		(256 * 1024)
+#ifdef HW_RVL
+#include "../gc_memory/MEM2.h"
+#endif
 
-
-extern "C" unsigned int usleep(unsigned int us);
 void video_mode_init(GXRModeObj *rmode, u32 *fb1, u32 *fb2);
 
 namespace menu {
@@ -34,10 +34,8 @@ Graphics::Graphics(GXRModeObj *rmode)
 		: vmode(rmode),
 		  which_fb(0),
 		  first_frame(true),
-		  depth(1.0f),
-		  transparency(1.0f),
-		  viewportWidth(640.0f),
-		  viewportHeight(480.0f)
+		  depth(-10.0f),
+		  transparency(1.0f)
 {
 //	printf("Graphics constructor\n");
 
@@ -62,15 +60,17 @@ Graphics::Graphics(GXRModeObj *rmode)
 
 	VIDEO_Configure(vmode);
 
-	xfb[0] = MEM_K0_TO_K1(SYS_AllocateFramebuffer(vmode));
-	xfb[1] = MEM_K0_TO_K1(SYS_AllocateFramebuffer(vmode));
-
-	console_init (xfb[0], 20, 64, vmode->fbWidth, vmode->xfbHeight, vmode->fbWidth * 2);
+#ifdef HW_RVL
+	xfb[0] = XFB0_LO;
+	xfb[1] = XFB1_LO;
+#else
+	xfb[0] = SYS_AllocateFramebuffer(vmode);
+	xfb[1] = SYS_AllocateFramebuffer(vmode);
+#endif
 
 	VIDEO_SetNextFramebuffer(xfb[which_fb]);
 	VIDEO_Flush();
 	VIDEO_WaitVSync();
-	if(vmode->viTVMode&VI_NON_INTERLACE) VIDEO_WaitVSync();
 	which_fb ^= 1;
 
 	//Pass vmode, xfb[0] and xfb[1] back to main program
@@ -78,7 +78,6 @@ Graphics::Graphics(GXRModeObj *rmode)
 
 	//Perform GX init stuff here?
 	//GX_init here or in main?
-	//GX_SetViewport( 0.0f, 0.0f, viewportWidth, viewportHeight );
 	init();
 }
 
@@ -88,59 +87,27 @@ Graphics::~Graphics()
 
 void Graphics::init()
 {
-
 	f32 yscale;
-	u32 xfbHeight;
 	void *gpfifo = NULL;
-	GXColor background = {0, 0, 0, 0xff};
 
-	gpfifo = memalign(32,DEFAULT_FIFO_SIZE);
-	memset(gpfifo,0,DEFAULT_FIFO_SIZE);
-	GX_Init(gpfifo,DEFAULT_FIFO_SIZE);
-	GX_SetCopyClear(background, GX_MAX_Z24);
+	gpfifo = memalign(32,GX_FIFO_MINSIZE);
+	GX_Init(gpfifo,GX_FIFO_MINSIZE);
 
-	GX_SetViewport(0,0,vmode->fbWidth,vmode->efbHeight,0,1);
 	yscale = GX_GetYScaleFactor(vmode->efbHeight,vmode->xfbHeight);
-	xfbHeight = GX_SetDispCopyYScale(yscale);
-	GX_SetScissor(0,0,vmode->fbWidth,vmode->efbHeight);
+	GX_SetDispCopyYScale(yscale);
 	GX_SetDispCopySrc(0,0,vmode->fbWidth,vmode->efbHeight);
-	GX_SetDispCopyDst(vmode->fbWidth,xfbHeight);
+	GX_SetDispCopyDst(vmode->fbWidth,vmode->xfbHeight);
 	GX_SetCopyFilter(vmode->aa,vmode->sample_pattern,GX_TRUE,vmode->vfilter);
-	GX_SetFieldMode(vmode->field_rendering,((vmode->viHeight==2*vmode->xfbHeight)?GX_ENABLE:GX_DISABLE));
+	GX_SetFieldMode(GX_DISABLE,((vmode->viHeight==2*vmode->xfbHeight)?GX_ENABLE:GX_DISABLE));
  
-	if (vmode->aa) {
-        GX_SetPixelFmt(GX_PF_RGB565_Z16, GX_ZC_LINEAR);
-    } else {
-        GX_SetPixelFmt(GX_PF_RGB8_Z24, GX_ZC_LINEAR);
-	}
-	GX_SetCullMode(GX_CULL_NONE);
-	GX_SetDispCopyGamma(GX_GM_1_0);
-
-	GX_InvVtxCache();
-	GX_InvalidateTexAll();
-
-	GX_SetVtxAttrFmt(GX_VTXFMT0, GX_VA_POS, GX_POS_XYZ, GX_F32, 0);
-	GX_SetVtxAttrFmt(GX_VTXFMT0, GX_VA_NRM, GX_NRM_XYZ, GX_F32, 0);
-	GX_SetVtxAttrFmt(GX_VTXFMT0, GX_VA_CLR0, GX_CLR_RGBA, GX_RGBA8, 0);
-	GX_SetVtxAttrFmt(GX_VTXFMT0, GX_VA_TEX0, GX_TEX_ST, GX_F32, 0);
-
-	GX_ClearVtxDesc();
-	GX_SetVtxDesc(GX_VA_PTNMTXIDX, GX_PNMTX0);
-	GX_SetVtxDesc(GX_VA_TEX0MTXIDX, GX_TEXMTX0);
-	GX_SetVtxDesc(GX_VA_POS, GX_DIRECT);
-	GX_SetVtxDesc(GX_VA_CLR0, GX_DIRECT);
-	GX_SetVtxDesc(GX_VA_TEX0, GX_DIRECT);
-
-	setTEV(GX_PASSCLR);
-	newModelView();
-	loadModelView();
-	loadOrthographic();
+	if (vmode->aa)
+		GX_SetPixelFmt(GX_PF_RGB565_Z16, GX_ZC_MID);
 }
 
 void Graphics::drawInit()
 {
 	// Reset various parameters from gfx plugin
-	GX_SetZTexture(GX_ZT_DISABLE,GX_TF_Z16,0);	//GX_ZT_DISABLE or GX_ZT_REPLACE; set in gDP.cpp
+	GX_SetZTexture(GX_ZT_DISABLE,GX_TF_Z8,0);
 	GX_SetZCompLoc(GX_TRUE);	// Do Z-compare before texturing.
 	GX_SetFog(GX_FOG_NONE,0,1,0,1,(GXColor){0,0,0,255});
 	GX_SetViewport(0,0,vmode->fbWidth,vmode->efbHeight,0,1);
@@ -182,8 +149,6 @@ void Graphics::drawInit()
 
 void Graphics::swapBuffers()
 {
-//	printf("Graphics swapBuffers\n");
-//	if(which_fb==1) usleep(1000000);
 	GX_SetCopyClear((GXColor){0, 0, 0, 0xFF}, GX_MAX_Z24);
 	GX_CopyDisp(xfb[which_fb],GX_TRUE);
 	GX_Flush();
@@ -191,12 +156,11 @@ void Graphics::swapBuffers()
 	VIDEO_SetNextFramebuffer(xfb[which_fb]);
 	if(first_frame) {
 		first_frame = false;
-		VIDEO_SetBlack(GX_FALSE);
+		VIDEO_SetBlack(false);
 	}
 	VIDEO_Flush();
  	VIDEO_WaitVSync();
 	which_fb ^= 1;
-//	printf("Graphics endSwapBuffers\n");
 }
 
 void Graphics::clearEFB(GXColor color, u32 zvalue)
@@ -207,6 +171,73 @@ void Graphics::clearEFB(GXColor color, u32 zvalue)
 	GX_SetCopyClear(color, zvalue);
 	GX_CopyDisp(xfb[which_fb],GX_TRUE);
 	GX_Flush();
+}
+
+void Graphics::copyFBTex(u8* dest, int width, int height, u8 fmt, int bpp)
+{
+	//First copy full FB
+	u8* tempFB=NULL;
+	tempFB = (u8*) memalign(32, 320*240*bpp);
+	if (tempFB)
+	{
+		GX_SetTexCopySrc(0, 0, 640, 480);
+		GX_SetTexCopyDst(320, 240, fmt, GX_TRUE);
+		GX_CopyTex(tempFB, GX_FALSE);
+		GX_DrawDone();
+	//Next draw FB to thumbnail sized region of EFB
+		//Load texture
+		GXTexObj obj;
+		GX_InitTexObj(&obj, tempFB, 320, 240, fmt, GX_CLAMP, GX_CLAMP, GX_FALSE);
+		GX_LoadTexObj(&obj, GX_TEXMAP0);
+		//Setup TEV
+		setTEV(GX_REPLACE);
+		//Setup blending
+		enableBlending(false);
+		GX_SetAlphaCompare(GX_ALWAYS,0,GX_AOP_AND,GX_ALWAYS,0);
+		GX_SetZMode(GX_DISABLE,GX_ALWAYS,GX_FALSE);
+		GX_SetCullMode (GX_CULL_NONE);
+		GX_SetFog(GX_FOG_NONE,0.1,1.0,0.0,1.0,(GXColor) {0,0,0,255});
+		Mtx44 GXprojection;
+		guMtxIdentity(GXprojection);
+		guOrtho(GXprojection, 0, 480, 0, 640, 0.0f, 1.0f);
+		GX_LoadProjectionMtx(GXprojection, GX_ORTHOGRAPHIC); 
+		newModelView();
+		loadModelView();
+		GX_SetViewport((f32) 0,(f32) 0,(f32) 640,(f32) 480, 0.0f, 1.0f);
+		GX_SetScissor((u32) 0,(u32) 0,(u32) 640,(u32) 480);	//Set to the same size as the viewport.
+		//set vertex description here
+		GX_ClearVtxDesc();
+		GX_SetVtxDesc(GX_VA_PTNMTXIDX, GX_PNMTX0);
+		GX_SetVtxDesc(GX_VA_TEX0MTXIDX, GX_TEXMTX0);
+		GX_SetVtxDesc(GX_VA_POS, GX_DIRECT);
+		GX_SetVtxDesc(GX_VA_TEX0, GX_DIRECT);
+		//set vertex attribute formats here
+		GX_SetVtxAttrFmt(GX_VTXFMT0, GX_VA_POS, GX_POS_XY, GX_F32, 0);
+		GX_SetVtxAttrFmt(GX_VTXFMT0, GX_VA_TEX0, GX_TEX_ST, GX_F32, 0);
+		GX_Begin(GX_QUADS, GX_VTXFMT0, 4);
+			GX_Position2f32( (f32) 0, (f32) 0 );
+			GX_TexCoord2f32( 0.0f, 0.0f );
+			GX_Position2f32( (f32) width, (f32) 0 );
+			GX_TexCoord2f32( 1.0f, 0.0f );
+			GX_Position2f32( (f32) width, (f32) height );
+			GX_TexCoord2f32( 1.0f, 1.0f );
+			GX_Position2f32( (f32) 0, (f32) height );
+			GX_TexCoord2f32( 0.0f, 1.0f );
+		GX_End();
+	//Next copy FB thumbnail
+		GX_SetTexCopySrc(0, 0, width, height);
+		GX_SetTexCopyDst(width, height, fmt, GX_FALSE);
+		if (dest)
+			GX_CopyTex(dest, GX_FALSE);
+		GX_DrawDone();
+		DCFlushRange(dest, width*height*bpp);
+		free(tempFB);
+	}
+	else if (dest)
+	{
+		memset(dest, 0x00, width*height*bpp);
+		DCFlushRange(dest, width*height*bpp);
+	}
 }
 
 void Graphics::newModelView()
@@ -238,8 +269,8 @@ void Graphics::loadModelView()
 
 void Graphics::loadOrthographic()
 {
-	if(screenMode)	guOrtho(currentProjectionMtx, 0, 479, -104, 743, 0, 700);
-	else			guOrtho(currentProjectionMtx, 0, 479, 0, 639, 0, 700);
+	if(screenMode)	guOrtho(currentProjectionMtx, 0, 480, -104, 744, 0, 700);
+	else			guOrtho(currentProjectionMtx, 0, 480, 0, 640, 0, 700);
 	GX_LoadProjectionMtx(currentProjectionMtx, GX_ORTHOGRAPHIC);
 }
 
@@ -342,10 +373,6 @@ void Graphics::drawLine(int x1, int y1, int x2, int y2)
 	GX_End();
 }
 
-#ifndef PI
-#define PI 3.14159f
-#endif
-
 void Graphics::drawCircle(int x, int y, int radius, int numSegments)
 {
 	float angle, point_x, point_y;
@@ -354,7 +381,7 @@ void Graphics::drawCircle(int x, int y, int radius, int numSegments)
 
 	for (int i = 0; i<=numSegments; i++)
 	{
-		angle = 2*PI * i/numSegments;
+		angle = M_TWOPI * i/numSegments;
 		point_x = (float)x + (float)radius * cos( angle );
 		point_y = (float)y + (float)radius * sin( angle );
 
@@ -411,15 +438,15 @@ void Graphics::enableScissor(int x, int y, int width, int height)
 	{
 		int x1 = (x+104)*640/848;
 		int x2 = (x+width+104)*640/848;
-		GX_SetScissor((u32) x1,(u32) y,(u32) x2-x1,(u32) height);
+		GX_SetScissor((u32) x1,(u32) y*vmode->efbHeight/480,(u32) x2-x1,(u32) height*vmode->efbHeight/480);
 	}
 	else
-		GX_SetScissor((u32) x,(u32) y,(u32) width,(u32) height);
+		GX_SetScissor((u32) x,(u32) y*vmode->efbHeight/480,(u32) width,(u32) height*vmode->efbHeight/480);
 }
 
 void Graphics::disableScissor()
 {
-	GX_SetScissor((u32) 0,(u32) 0,(u32) viewportWidth,(u32) viewportHeight); //Set to the same size as the viewport.
+	GX_SetScissor((u32) 0,(u32) 0,(u32) vmode->fbWidth,(u32) vmode->efbHeight);
 }
 
 void Graphics::enableBlending(bool blend)

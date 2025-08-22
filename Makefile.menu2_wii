@@ -110,12 +110,20 @@ OBJ_INPUT	=gc_input/main.o \
 		gc_input/controller-DRC.o \
 		gc_input/controller-WiimoteNunchuk.o
 
-OBJ_RSPHLE	=rsp_hle/main.o \
+OBJ_RSPHLE	=rsp_hle/alist.o \
+		rsp_hle/alist_audio.o \
+		rsp_hle/alist_naudio.o \
+		rsp_hle/alist_nead.o \
+		rsp_hle/audio.o \
+		rsp_hle/cicx105.o \
+		rsp_hle/hle.o \
+		rsp_hle/hvqm.o \
 		rsp_hle/jpeg.o \
-		rsp_hle/ucode3.o \
-		rsp_hle/ucode2.o \
-		rsp_hle/ucode1.o \
-		rsp_hle/ucode3mp3.o
+		rsp_hle/memory.o \
+		rsp_hle/mp3.o \
+		rsp_hle/musyx.o \
+		rsp_hle/re2.o \
+		rsp_hle/plugin.o
 		
 OBJ_RSPHLEPPC	=rsp_hle-ppc/main.o \
 		rsp_hle-ppc/jpeg.o \
@@ -190,9 +198,6 @@ gui/background_tex.o:		gui/background_tex.s
 				$(CC) $(CFLAGS) -c -o $@ $<
 
 gc_input/main.o:		gc_input/input.c
-				$(CC) $(CFLAGS) -c -o $@ $<
-
-rsp_hle-ppc/main.o:			rsp_hle-ppc/main.c
 				$(CC) $(CFLAGS) -c -o $@ $<
 
 gc_audio/main.o:		gc_audio/audio.c

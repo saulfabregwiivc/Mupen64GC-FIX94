@@ -1,6 +1,6 @@
 /**
  * Wii64 - GraphicsGX.h
- * Copyright (C) 2009 sepp256
+ * Copyright (C) 2009, 2013 sepp256
  *
  * Wii64 homepage: http://www.emulatemii.com
  * email address: sepp256@gmail.com
@@ -35,6 +35,7 @@ public:
 	void drawInit();
 	void swapBuffers();
 	void clearEFB(GXColor color, u32 zvalue);
+	void copyFBTex(u8* dest, int width, int height, u8 fmt, int bpp);
 	void newModelView();
 	void translate(float x, float y, float z);
 	void translateApply(float x, float y, float z);
@@ -73,7 +74,6 @@ private:
 	bool first_frame;
 	void *xfb[2];
 	float depth, transparency;
-	float viewportWidth, viewportHeight;
 	FloatStack depthStack, transparencyStack;
 	GXColor currentColor[4], appliedColor[4];
 	Mtx currentModelViewMtx;

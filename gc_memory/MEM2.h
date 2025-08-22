@@ -35,16 +35,9 @@
 #define MEM2_HI   ((char*)0x933E0000)
 #define MEM2_SIZE (MEM2_HI - MEM2_LO)
 
-// Testing the xfb in MEM2 (reduce Texture Cache by 2MB to accomodate)
-/*#define XFB_SIZE (720*480*2) // XFB_SIZE*2 ~= 1.4MB
-#define XFB0_LO	(MEM2_LO)
-#define XFB1_LO	(XFB0_LO + XFB_SIZE)
-#define XFB_HI	(XFB1_LO + XFB_SIZE)*/
-
 // We want 16MB for our ROM Cache
 #define ROMCACHE_SIZE (16*MB)
 #define ROMCACHE_LO   (MEM2_LO)
-//#define ROMCACHE_LO   (XFB_HI)
 #define ROMCACHE_HI   (ROMCACHE_LO + ROMCACHE_SIZE)
 
 // We want 8MB for TLB lut's
@@ -52,8 +45,8 @@
 #define TLBLUT_LO   (ROMCACHE_HI)
 #define TLBLUT_HI   (TLBLUT_LO + TLBLUT_SIZE)
 
-// We want 16MB for a Texture Cache
-#define TEXCACHE_SIZE (16*MB)
+// We want 12MB for a Texture Cache
+#define TEXCACHE_SIZE (12*MB)
 #define TEXCACHE_LO   (TLBLUT_HI)
 #define TEXCACHE_HI   (TEXCACHE_LO + TEXCACHE_SIZE)
 
@@ -91,6 +84,12 @@
 #define RECOMPMETA_SIZE (4*MB)
 #define RECOMPMETA_LO   (BLOCKS_HI)
 #define RECOMPMETA_HI   (RECOMPMETA_LO + RECOMPMETA_SIZE)
+
+// XFB
+#define XFB_SIZE (640*576*2)
+#define XFB0_LO	(RECOMPMETA_HI)
+#define XFB1_LO	(XFB0_LO + XFB_SIZE)
+#define XFB_HI	(XFB1_LO + XFB_SIZE)
 
 // Unclaimed MEM2
 #define UNCLAIMED_SIZE (MEM2_HI - BLOCKS_HI)
